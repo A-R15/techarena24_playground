@@ -6,10 +6,27 @@
 struct RoboPredictor::RoboMemory {
   // Place your RoboMemory content here
   // Note that the size of this data structure can't exceed 64KiB!
+  static const int maxPlanets = 1024; //each planet is 32 bits ttl 8KiB
+  
+  struct PlanetData{
+  std::uint32_t planetId;
+  bool time;
+  };
+  
+  PlanetData observedPlanets[maxPlanets];
+  int planetCount;    //The num of planets stred in mem
+  
+  RoboMemory() : planetCount(0) {}//start counting
 };
 
 bool RoboPredictor::predictTimeOfDayOnNextPlanet(
-    std::uint64_t nextPlanetID, bool spaceshipComputerPrediction) {
+    std::uint32_t nextPlanetID, bool spaceshipComputerPrediction) {
+  for(int i =0; i < roboMemory_ptr -> planetCount;++i){
+    if (roboMemory_ptr-> observedPlanets[i ].planetId == nextPlanetID)
+    return roboMemory_ptr-> observedPlanets[ i].time;
+  }
+
+
   // Robo can consult data structures in its memory while predicting.
   // Example: access Robo's memory with roboMemory_ptr-><your RoboMemory
   // content>
@@ -26,7 +43,20 @@ bool RoboPredictor::predictTimeOfDayOnNextPlanet(
 }
 
 void RoboPredictor::observeAndRecordTimeofdayOnNextPlanet(
-    std::uint64_t nextPlanetID, bool timeOfDayOnNextPlanet) {
+    std::uint32_t nextPlanetID, bool timeOfDayOnNextPlanet) {
+    for(int i =0; i < roboMemory_ptr -> planetCount;++i){
+      if (roboMemory_ptr-> observedPlanets[i ].planetId == nextPlanetID){
+        roboMemory_ptr ->observedPlanets[i].time = timeOfDayOnNextPlanet; 
+      return;
+    }
+  }
+
+  if(roboMemory_ptr->planetCount < RoboPredictor::RoboMemory::maxPlanets){
+    roboMemory_ptr-> observedPlanets[ roboMemory_ptr ->planetCount++ ] ={
+      nextPlanetID,
+      timeOfDayOnNextPlanet
+    };
+  }
   // Robo can consult/update data structures in its memory
   // Example: access Robo's memory with roboMemory_ptr-><your RoboMemory
   // content>
