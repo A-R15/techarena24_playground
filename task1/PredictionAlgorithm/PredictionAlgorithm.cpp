@@ -6,32 +6,27 @@
 struct RoboPredictor::RoboMemory {
 	// Place your RoboMemory content here
 	// Note that the size of this data structure can't exceed 64KiB!
-	static const int maxPlanets = 1024; //each planet is 32 bits ttl 8KiB
-	int planetCount;    				//The num of planets stred in mem
-	std::uint64_t visits;
-	
 	struct PlanetData{
 	std::uint64_t planetId;
-	bool time;
-	std::uint64_t prevVisit;
+	int dCount;
+	int nCount;
+	
 	};
 
-	PlanetData observedPlanets[maxPlanets];
+	static const int maxPlanets = 1024; 	//each planet is 32 bits ttl 8KiB
+	int planetCount = 0;    				//The num of planets stred in mem
 	
-	RoboMemory() : planetCount(0), visits(0) {} //set to 0
+	PlanetData observedPlanets[maxPlanets];
 };
 
 bool RoboPredictor::predictTimeOfDayOnNextPlanet(
 		std::uint64_t nextPlanetID, bool spaceshipComputerPrediction) {
 	for(int i =0; i < roboMemory_ptr -> planetCount;++i){
 		if (roboMemory_ptr-> observedPlanets[i ].planetId == nextPlanetID){ //if nxt planet already in mem
-			std::uint64_t timeDif = roboMemory_ptr-> visits - roboMemory_ptr->observedPlanets[i].prevVisit;
+			//predicts the majority
+			const RoboMemory::PlanetData& p = roboMemory_ptr ->observedPlanets[i];
+			return p.nCount >p.dCount ? false : true;
 
-			if(timeDif < 6000 && roboMemory_ptr-> observedPlanets[i ].time == 0 && spaceshipComputerPrediction == 1){
-				return !roboMemory_ptr-> observedPlanets[ i].time;
-			}
-		
-			return roboMemory_ptr-> observedPlanets[ i].time;
 		}
 	}
 
@@ -47,28 +42,37 @@ bool RoboPredictor::predictTimeOfDayOnNextPlanet(
 	// evaluation (see main.cpp for more details).
 
 	// Simple prediction policy: follow the spaceship computer's suggestions
-	return spaceshipComputerPrediction;
+	return false;
 }
 
 void RoboPredictor::observeAndRecordTimeofdayOnNextPlanet(
 		std::uint64_t nextPlanetID, bool timeOfDayOnNextPlanet) {
 
-	roboMemory_ptr->visits++;
+	// roboMemory_ptr->visits++;
 
-		for(int i =0; i < roboMemory_ptr -> planetCount;++i){ //loops through all planets in mem 1024
-			if (roboMemory_ptr-> observedPlanets[i ].planetId == nextPlanetID){ // if a planet in memory is = nxt planet it:
-				roboMemory_ptr ->observedPlanets[i].time = timeOfDayOnNextPlanet;  // records time of day
-				roboMemory_ptr-> observedPlanets[i].prevVisit = roboMemory_ptr->visits; //records the current visit 
-			return;
+	for(int i =0; i < roboMemory_ptr -> planetCount;++i){ //loops through all planets in mem 1024
+		if (roboMemory_ptr-> observedPlanets[i ].planetId == nextPlanetID){ // if a planet in memory is = nxt planet it:
+			
+			if (timeOfDayOnNextPlanet)
+				roboMemory_ptr->observedPlanets[i].dCount++;
+			else
+				roboMemory_ptr->observedPlanets[i].nCount++;
+	
+		return;
 		}
 	}
 
 	if(roboMemory_ptr->planetCount < RoboPredictor::RoboMemory::maxPlanets){
-		roboMemory_ptr-> observedPlanets[ roboMemory_ptr ->planetCount++ ] ={
-			nextPlanetID,
-			timeOfDayOnNextPlanet,
-			roboMemory_ptr->visits
-		};
+		RoboMemory::PlanetData& newP = roboMemory_ptr->observedPlanets[roboMemory_ptr->planetCount++];
+
+			newP.planetId = nextPlanetID;
+	
+			if (timeOfDayOnNextPlanet){
+				newP.dCount = 1; newP.nCount = 0;
+			}
+			else{
+				newP.dCount = 0; newP.nCount = 1;
+			}
 	}
 	// Robo can consult/update data structures in its memory
 	// Example: access Robo's memory with roboMemory_ptr-><your RoboMemory
