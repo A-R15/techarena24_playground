@@ -2,31 +2,66 @@
 // algorithm
 
 #include "PredictionAlgorithm.hpp"
-#include <unordered_map>
-#include <iostream>
+#include <cstdint>
+#include <cstring>
 
 struct RoboPredictor::RoboMemory {
 	// Place your RoboMemory content here
 	// Note that the size of this data structure can't exceed 64KiB!
+
 	struct PlanetData{ //data holding for each planet. each is 8 Bytes
-	int dCount; 
-	int nCount;
+	std::uint32_t planetId = 0;
+	std::uint8_t dCount = 0; 
+	std::uint8_t nCount = 0;
+	bool valid = false;
 	};
 
-	//using hash map - pairing ID to PlanetData - O(1)
-	std::unordered_map<std::uint64_t, PlanetData> observedPlanets; // key - 8B ; PlanetData - 8B
-};
+	static const int max = 1024;
+	PlanetData observedPlanets[max];
 
-//	~40B per record.
+	  // Find the index for a planet using modulus
+  int findIndex(std::uint64_t planetId) const {
+    return planetId % max;
+  }
+
+  // Add or update planet data
+  void addPlanet(std::uint64_t planetId, bool day) {
+    int index = findIndex(planetId);
+    PlanetData &p = observedPlanets[index];
+
+    if (p.valid && p.planetId == planetId) {
+      // Update counts if the planet is already recorded
+      if (day) p.dCount++;
+      else p.nCount++;
+    } else {
+      // Otherwise, overwrite this slot with the new planet
+      p.planetId = planetId;
+      p.dCount = day ? 1 : 0;
+      p.nCount = day ? 0 : 1;
+      p.valid = true;
+    }
+  }
+
+  // Predict the time of day based on stored data
+  bool predict(std::uint64_t planetId, bool spaceshipPrediction) const {
+    int index = findIndex(planetId);
+    const PlanetData &p = observedPlanets[index];
+
+    if (p.valid && p.planetId == planetId) {
+      // If the planet is in memory, return the more frequent observation
+      return p.dCount >= p.nCount;
+    }
+
+    // If not found, fall back to spaceship prediction
+    return false;
+  }
+
+	
+};
 
 bool RoboPredictor::predictTimeOfDayOnNextPlanet(
 		std::uint64_t nextPlanetID, bool spaceshipComputerPrediction) {
-	auto p = roboMemory_ptr->observedPlanets.find(nextPlanetID);	//search for planet with ID
 
-	if (p != roboMemory_ptr->observedPlanets.end()){ //if a record exits
-		const auto& planet = p-> second;	//gets planetdata 
-		return planet.dCount >= planet.nCount; //then predicts day if days is >= nights
-	}
 
 	// Robo can consult data structures in its memory while predicting.
 	// Example: access Robo's memory with roboMemory_ptr-><your RoboMemory
@@ -40,18 +75,14 @@ bool RoboPredictor::predictTimeOfDayOnNextPlanet(
 	// evaluation (see main.cpp for more details).
 
 	// Simple prediction policy: follow the spaceship computer's suggestions
-	return false;
+
+	return roboMemory_ptr->predict(nextPlanetID, spaceshipComputerPrediction);
 }
 
 void RoboPredictor::observeAndRecordTimeofdayOnNextPlanet(
 		std::uint64_t nextPlanetID, bool timeOfDayOnNextPlanet) {
-
-	auto& planet = roboMemory_ptr->observedPlanets[nextPlanetID]; //loads a planets data using it's ID
 	
-	if (timeOfDayOnNextPlanet)	//increment counters
-		planet.dCount++;
-	else
-		planet.nCount++;	
+	roboMemory_ptr->addPlanet(nextPlanetID, timeOfDayOnNextPlanet);
 
 	// Robo can consult/update data structures in its memory
 	// Example: access Robo's memory with roboMemory_ptr-><your RoboMemory
@@ -83,5 +114,4 @@ RoboPredictor::RoboPredictor() {
 }
 RoboPredictor::~RoboPredictor() {
 	delete roboMemory_ptr;
-	std::cout << "Size of RoboMemory: " << sizeof(RoboPredictor::RoboMemory) << "B\n";
 }
