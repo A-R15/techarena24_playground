@@ -2,7 +2,6 @@
 // algorithm
 
 #include "PredictionAlgorithm.hpp"
-#include <algorithm>
 
 struct RoboPredictor::RoboMemory {
 	// Place your RoboMemory content here

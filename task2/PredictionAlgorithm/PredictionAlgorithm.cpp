@@ -3,14 +3,64 @@
 
 #include "PredictionAlgorithm.hpp"
 
+#include <unordered_map>
+#include <vector>
+#include <cstdint>
+
 struct RoboPredictor::RoboMemory {
-  // Place your RoboMemory content here
-  // Note that the size of this data structure can't exceed 64KiB!
+  // Structure for group-level tracking
+  struct GroupHistory {
+    int day_count = 0;
+    int night_count = 0;
+    
+    void record(bool timeOfDay) {
+      if (timeOfDay)
+        ++day_count;
+      else
+        ++night_count;
+    }
+
+    bool predict() const {
+      return day_count >= night_count; // Majority voting
+    }
+
+    double confidence() const {
+      int total = day_count + night_count;
+      if (total == 0) return 0.5; // No data yet
+      return static_cast<double>(day_count) / total;
+    }
+  };
+
+  GroupHistory groupHistories[1024]; // Group tag memory (0-1023)
+  std::unordered_map<std::uint64_t, bool> planetMemory; // Specific planet history
 };
 
 bool RoboPredictor::predictTimeOfDayOnNextPlanet(
     std::uint64_t nextPlanetID, bool spaceshipComputerPrediction,
     int nextPlanetGroupTag) {
+
+    auto& group = roboMemory_ptr->groupHistories[nextPlanetGroupTag];
+    auto planetIt = roboMemory_ptr->planetMemory.find(nextPlanetID);
+
+    // Retrieve predictions
+    bool groupPrediction = group.predict();
+    double groupConfidence = group.confidence();
+
+    bool planetPrediction = spaceshipComputerPrediction;
+    double planetConfidence = 0.5; // Default confidence for spaceship
+
+    if (planetIt != roboMemory_ptr->planetMemory.end()) {
+    planetPrediction = planetIt->second;
+    planetConfidence = 1.0; // Fully confident in individual data
+    }
+
+    // Weighted blending of predictions
+    double groupWeight = groupConfidence * 0.7; // Adjust this weight based on dataset
+    double planetWeight = planetConfidence * 0.3; // Individual planet has a smaller impact
+
+    // Final decision
+    return (groupWeight * groupPrediction + planetWeight * planetPrediction +
+      (1 - groupWeight - planetWeight) * spaceshipComputerPrediction) >= 0.5;
   // Robo can consult data structures in its memory while predicting.
   // Example: access Robo's memory with roboMemory_ptr-><your RoboMemory
   // content>
@@ -32,6 +82,14 @@ bool RoboPredictor::predictTimeOfDayOnNextPlanet(
 
 void RoboPredictor::observeAndRecordTimeofdayOnNextPlanet(
     std::uint64_t nextPlanetID, bool timeOfDayOnNextPlanet) {
+  int groupTag = nextPlanetID % 1024;
+  auto& group = roboMemory_ptr->groupHistories[groupTag];
+
+  // Update group-level data
+  group.record(timeOfDayOnNextPlanet);
+
+  // Update planet-specific data
+  roboMemory_ptr->planetMemory[nextPlanetID] = timeOfDayOnNextPlanet;
   // Robo can consult/update data structures in its memory
   // Example: access Robo's memory with roboMemory_ptr-><your RoboMemory
   // content>
